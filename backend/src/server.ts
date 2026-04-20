@@ -2,7 +2,7 @@ import "dotenv/config";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import { z } from "zod";
-import { BalldontlieProvider } from "./data/balldontlieProvider.js";
+import { TheRundownProvider } from "./data/therundownProvider.js";
 import { PredictorService } from "./service/predictor.js";
 import type { TeamAbbr } from "./types.js";
 import { normalizeBalldontlieSeason, nbaSeasonStartYearFromDate } from "./nbaSeason.js";
@@ -45,11 +45,12 @@ await app.register(cors, {
   origin: true
 });
 
-const apiKey = process.env.BALLDONTLIE_API_KEY;
+// TheRundown API - Plano gratuito: 20,000 data points/dia, 1 req/sec
+const apiKey = process.env.THERUNDOWN_API_KEY;
 if (!apiKey) {
-  throw new Error("BALLDONTLIE_API_KEY environment variable is required");
+  throw new Error("THERUNDOWN_API_KEY environment variable is required");
 }
-const provider = new BalldontlieProvider({ apiKey });
+const provider = new TheRundownProvider({ apiKey });
 const predictor = new PredictorService(provider);
 
 app.get("/health", async () => ({ ok: true }));
