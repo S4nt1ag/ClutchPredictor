@@ -86,12 +86,46 @@ export class BalldontlieProvider implements NbaDataProvider {
   private readonly baseUrl = "https://api.balldontlie.io/v1";
   private readonly apiKey: string;
   private teamIdByAbbrPromise: Promise<Map<TeamAbbr, number>> | null = null;
+  private lastRequestTime = 0;
+  private readonly minRequestInterval = 1500; // Rate limit conservador: ~40 requests/min
+
+  // Cache em memória para evitar requisições duplicadas
+  private gamesCache = new Map<string, { data: BalldontlieGame[]; timestamp: number }>();
+  private readonly cacheTTL = 5 * 60 * 1000; // 5 minutos
 
   constructor(input: { apiKey: string }) {
     this.apiKey = input.apiKey;
   }
 
+  private getCacheKey(input: { seasons?: number[]; teamIds?: number[]; start_date?: string; end_date?: string }): string {
+    return JSON.stringify(input);
+  }
+
+  private getCachedGames(input: { seasons?: number[]; teamIds?: number[]; start_date?: string; end_date?: string }): BalldontlieGame[] | null {
+    const key = this.getCacheKey(input);
+    const cached = this.gamesCache.get(key);
+    if (cached && Date.now() - cached.timestamp < this.cacheTTL) {
+      return cached.data;
+    }
+    return null;
+  }
+
+  private setCachedGames(input: { seasons?: number[]; teamIds?: number[]; start_date?: string; end_date?: string }, data: BalldontlieGame[]): void {
+    const key = this.getCacheKey(input);
+    this.gamesCache.set(key, { data, timestamp: Date.now() });
+  }
+
+  private async throttle(): Promise<void> {
+    const now = Date.now();
+    const elapsed = now - this.lastRequestTime;
+    if (elapsed < this.minRequestInterval) {
+      await new Promise(resolve => setTimeout(resolve, this.minRequestInterval - elapsed));
+    }
+    this.lastRequestTime = Date.now();
+  }
+
   private async getJson<T>(path: string, qs?: Record<string, string | number | boolean | undefined>): Promise<T> {
+    await this.throttle();
     const url = new URL(`${this.baseUrl}${path}`);
     if (qs) {
       for (const [k, v] of Object.entries(qs)) {
@@ -115,11 +149,18 @@ export class BalldontlieProvider implements NbaDataProvider {
     end_date?: string;
     maxPages?: number;
   }): Promise<BalldontlieGame[]> {
-    const maxPages = input.maxPages ?? 40;
+    // Verifica cache primeiro
+    const cached = this.getCachedGames(input);
+    if (cached) {
+      return cached;
+    }
+
+    const maxPages = Math.min(input.maxPages ?? 40, 3); // Reduzido de 40 para 3 páginas máx
     const out: BalldontlieGame[] = [];
     let cursor: string | number | undefined;
 
     for (let page = 0; page < maxPages; page++) {
+      await this.throttle();
       const url = new URL(`${this.baseUrl}/games`);
       url.searchParams.set("per_page", "100");
       if (cursor != null) url.searchParams.set("cursor", String(cursor));
@@ -143,6 +184,9 @@ export class BalldontlieProvider implements NbaDataProvider {
       if (next == null) break;
       cursor = next;
     }
+
+    // Armazena no cache
+    this.setCachedGames(input, out);
     return out;
   }
 
@@ -172,7 +216,7 @@ export class BalldontlieProvider implements NbaDataProvider {
     const raw = await this.getGamesPaged({
       seasons: [season],
       teamIds: [teamId],
-      maxPages: 8
+      maxPages: 2  // Reduzido de 8 para 2
     });
 
     const games = raw
@@ -207,7 +251,7 @@ export class BalldontlieProvider implements NbaDataProvider {
     const raw = await this.getGamesPaged({
       seasons: [season],
       teamIds: [homeId, awayId],
-      maxPages: 10
+      maxPages: 2  // Reduzido de 10 para 2
     });
 
     const games = raw

@@ -1,7 +1,7 @@
+import "dotenv/config";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import { z } from "zod";
-import { MockProvider } from "./data/mockProvider.js";
 import { BalldontlieProvider } from "./data/balldontlieProvider.js";
 import { PredictorService } from "./service/predictor.js";
 import type { TeamAbbr } from "./types.js";
@@ -45,10 +45,11 @@ await app.register(cors, {
   origin: true
 });
 
-const provider =
-  process.env.DATA_PROVIDER === "balldontlie"
-    ? new BalldontlieProvider({ apiKey: process.env.BALLDONTLIE_API_KEY ?? "" })
-    : new MockProvider();
+const apiKey = process.env.BALLDONTLIE_API_KEY;
+if (!apiKey) {
+  throw new Error("BALLDONTLIE_API_KEY environment variable is required");
+}
+const provider = new BalldontlieProvider({ apiKey });
 const predictor = new PredictorService(provider);
 
 app.get("/health", async () => ({ ok: true }));

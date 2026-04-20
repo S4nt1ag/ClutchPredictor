@@ -11,7 +11,8 @@ build/
 # Environment variables
 .env
 .env.local
-.env.*.local
+# Allow .env.example to be committed (template for developers)
+!.env.example
 
 # IDE
 .idea/
