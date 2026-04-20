@@ -2,15 +2,6 @@
 
 Preditor de jogos NBA com modelo ELO que estima probabilidades de vitória e chances de título.
 
-## ⚠️ Limite de uso da API
-
-O sistema agora utiliza a [TheRundown API](https://therundown.io/) no plano gratuito, que permite **20.000 data points/dia** e 1 requisição por segundo. Se esse limite for atingido, a API ficará bloqueada até o próximo dia.
-
-**Dicas para evitar bloqueio:**
-- O app só faz requisição quando você clica em "Atualizar".
-- O padrão é buscar apenas 1 dia de jogos futuros.
-- Evite clicar repetidamente ou aumentar muito o número de dias.
-
 ## ✨ Funcionalidades
 
 - **Previsão de Jogos**: Probabilidade de vitória baseada em desempenho recente (ELO)
